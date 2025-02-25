@@ -1,0 +1,1 @@
+/usr/bin/c++  -DDEBUG -g -rdynamic CMakeFiles/re2dfa.dir/main.cpp.o CMakeFiles/re2dfa.dir/task.cpp.o -o re2dfa   -L/home/rnsns/hse/fla/hw-1/re2dfa  -L/home/rnsns/hse/fla/hw-1  -Wl,-rpath,/home/rnsns/hse/fla/hw-1/re2dfa:/home/rnsns/hse/fla/hw-1: -lRegexCheckerCore_Linux 
