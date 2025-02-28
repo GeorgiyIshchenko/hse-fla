@@ -9,6 +9,12 @@
 
 #include "api.hpp"
 
+void log(const std::string &str) {
+#ifdef DEBUG
+  std::cout << str << std::endl;
+#endif
+}
+
 constexpr char SYMBOL_OR = '|';
 constexpr char SYMBOL_CONCAT = '.';
 constexpr char SYMBOL_REPEAT = '*';
@@ -344,9 +350,7 @@ DFA re2dfa(const std::string &s) {
   Parser parser(tokens);
   auto root = parser.parse();
 
-#ifdef DEBUG
-  std::cout << "Expression parsed..." << std::endl;
-#endif
+  log("Expression parsed...");
 
   res.create_state("root", true);
   res.set_initial("root");
@@ -356,11 +360,7 @@ DFA re2dfa(const std::string &s) {
       root->firstpos.begin(), root->firstpos.end(),
       [&R](std::shared_ptr<BaseNode> node) { R->followpos.push_back(node); });
 
-#ifdef DEBUG
-  std::cout << std::endl
-            << "Root position condition: " << R->getFollowPosReadable()
-            << std::endl;
-#endif
+  log("Root position condition: " + R->getFollowPosReadable());
 
   std::vector<std::shared_ptr<PositionNode>> Q{};
   Q.push_back(R);
@@ -370,11 +370,7 @@ DFA re2dfa(const std::string &s) {
 
   while (R != nullptr) {
 
-#ifdef DEBUG
-    std::cout << std::endl
-              << "Cycle " << cycle << ". R: " << R->getFollowPosReadable()
-              << std::endl;
-#endif
+    log("\nCycle " + std::to_string(cycle) + ". R: " + R->getFollowPosReadable());
 
     marked.push_back(R);
 
@@ -396,14 +392,14 @@ DFA re2dfa(const std::string &s) {
         return;
       }
 
-#ifdef DEBUG
-      std::cout << "Symbol " << c << ". S:" << S.getFollowPosReadable()
-                << ". Q:";
-      std::for_each(Q.begin(), Q.end(), [](std::shared_ptr<PositionNode> node) {
-        std::cout << " " << node->getFollowPosReadable();
-      });
-      std::cout << std::endl;
-#endif
+      std::string log_str{};
+      log_str += "Symbol " + std::to_string(c) +
+                 ". S:" + S.getFollowPosReadable() + ". Q:";
+      std::for_each(Q.begin(), Q.end(),
+                    [&log_str](std::shared_ptr<PositionNode> node) {
+                      log_str += " " + node->getFollowPosReadable();
+                    });
+      log(log_str);
 
       // S not in Q
       bool SinQ = false;
@@ -432,21 +428,14 @@ DFA re2dfa(const std::string &s) {
       if (!SinQ) {
         Q.push_back(std::make_shared<PositionNode>(S));
         res.create_state(S.getFollowPosReadable(), false);
-#ifdef DEBUG
-        std::cout << "New state: " << S.getFollowPosReadable() << std::endl;
-#endif
+        log("New state: " + S.getFollowPosReadable());
       } else {
-#ifdef DEBUG
-        std::cout << "State already in Q: " << S.getFollowPosReadable()
-                  << std::endl;
-#endif
+        log("State already in Q: " + S.getFollowPosReadable());
       }
 
       res.set_trans(R->getFollowPosReadable(), c, S.getFollowPosReadable());
-#ifdef DEBUG
-      std::cout << "Set trans: " << R->getFollowPosReadable() << " --" << c
-                << "--> " << S.getFollowPosReadable() << std::endl;
-#endif
+      log("Set trans: " + R->getFollowPosReadable() + " --" + c + "--> " +
+          S.getFollowPosReadable());
     });
 
     R = getNotMarked(Q, marked);
@@ -459,10 +448,7 @@ DFA re2dfa(const std::string &s) {
       auto position = dynamic_cast<PositionNode *>(it->get());
       if (position->name == SYMBOL_NUMBER_SIGN) {
         res.make_final(node->getFollowPosReadable());
-#ifdef DEBUG
-        std::cout << std::endl
-                  << "Set final: " << node->getFollowPosReadable() << std::endl;
-#endif
+        log("Set final: " + node->getFollowPosReadable());
         break;
       }
     }
