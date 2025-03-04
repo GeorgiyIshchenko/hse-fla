@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <unordered_set>
 
 #include "api.hpp"
 
@@ -59,11 +60,11 @@ struct BaseNode {
 
   Token token;
   bool nullable;
-  std::vector<std::shared_ptr<BaseNode>> firstpos{};
-  std::vector<std::shared_ptr<BaseNode>> lastpos{};
-  std::vector<std::shared_ptr<BaseNode>> followpos{};
+  std::unordered_set<std::shared_ptr<BaseNode>> firstpos{};
+  std::unordered_set<std::shared_ptr<BaseNode>> lastpos{};
+  std::unordered_set<std::shared_ptr<BaseNode>> followpos{};
 
-  int readableNum = generateReadableNum();
+  int readableNum{};
 };
 
 struct OrNode : BaseNode {
@@ -75,16 +76,16 @@ struct OrNode : BaseNode {
     nullable = left->nullable || right->nullable;
     std::for_each(
         left->firstpos.begin(), left->firstpos.end(),
-        [this](std::shared_ptr<BaseNode> node) { firstpos.push_back(node); });
+        [this](std::shared_ptr<BaseNode> node) { firstpos.insert(node); });
     std::for_each(
         left->lastpos.begin(), left->lastpos.end(),
-        [this](std::shared_ptr<BaseNode> node) { lastpos.push_back(node); });
+        [this](std::shared_ptr<BaseNode> node) { lastpos.insert(node); });
     std::for_each(
         right->firstpos.begin(), right->firstpos.end(),
-        [this](std::shared_ptr<BaseNode> node) { firstpos.push_back(node); });
+        [this](std::shared_ptr<BaseNode> node) { firstpos.insert(node); });
     std::for_each(
         right->lastpos.begin(), right->lastpos.end(),
-        [this](std::shared_ptr<BaseNode> node) { lastpos.push_back(node); });
+        [this](std::shared_ptr<BaseNode> node) { lastpos.insert(node); });
   }
 
   virtual ~OrNode(){};
@@ -99,17 +100,18 @@ struct RepeatNode : BaseNode {
       : BaseNode(Token(TokenType::TOK_REPEAT, SYMBOL_REPEAT), true) {
     this->repeatable = repeatable;
     nullable = true;
-    std::for_each(repeatable->firstpos.begin(), repeatable->firstpos.end(),
-                  [this](std::shared_ptr<BaseNode> node) {
-                    firstpos.push_back(node);
-                    lastpos.push_back(node);
-                  });
+    std::for_each(
+        repeatable->firstpos.begin(), repeatable->firstpos.end(),
+        [this](std::shared_ptr<BaseNode> node) { firstpos.insert(node); });
+    std::for_each(
+        repeatable->lastpos.begin(), repeatable->lastpos.end(),
+        [this](std::shared_ptr<BaseNode> node) { lastpos.insert(node); });
     std::for_each(repeatable->lastpos.begin(), repeatable->lastpos.end(),
                   [this, &repeatable](std::shared_ptr<BaseNode> node) {
                     std::for_each(repeatable->firstpos.begin(),
                                   repeatable->firstpos.end(),
                                   [this, &node](std::shared_ptr<BaseNode> n) {
-                                    node->followpos.push_back(n);
+                                    node->followpos.insert(n);
                                   });
                   });
   }
@@ -128,30 +130,32 @@ struct ConcatNode : BaseNode {
     nullable = left->nullable && right->nullable;
     std::for_each(left->firstpos.begin(), left->firstpos.end(),
                   [this, &right](std::shared_ptr<BaseNode> node) {
-                    firstpos.push_back(node);
+                    firstpos.insert(node);
                   });
     std::for_each(left->lastpos.begin(), left->lastpos.end(),
                   [this, &right](std::shared_ptr<BaseNode> node) {
                     if (right->nullable) {
-                      lastpos.push_back(node);
+                      lastpos.insert(node);
                     }
                   });
     std::for_each(right->firstpos.begin(), right->firstpos.end(),
                   [this, &left](std::shared_ptr<BaseNode> node) {
                     if (left->nullable) {
-                      firstpos.push_back(node);
+                      firstpos.insert(node);
                     }
                   });
     std::for_each(
         right->lastpos.begin(), right->lastpos.end(),
-        [this](std::shared_ptr<BaseNode> node) { lastpos.push_back(node); });
+        [this](std::shared_ptr<BaseNode> node) { lastpos.insert(node); });
     std::for_each(left->lastpos.begin(), left->lastpos.end(),
                   [this, &right](std::shared_ptr<BaseNode> node) {
-                    std::for_each(right->firstpos.begin(),
-                                  right->firstpos.end(),
-                                  [this, &node](std::shared_ptr<BaseNode> n) {
-                                    node->followpos.push_back(n);
-                                  });
+                    std::for_each(
+                        right->firstpos.begin(), right->firstpos.end(),
+                        [this, &node](std::shared_ptr<BaseNode> n) {
+                          log(std::to_string(node->readableNum) + " <-- " +
+                              std::to_string(n->readableNum));
+                          node->followpos.insert(n);
+                        });
                   });
   }
 
@@ -161,23 +165,24 @@ struct ConcatNode : BaseNode {
   std::shared_ptr<BaseNode> right;
 };
 
-std::vector<std::shared_ptr<PositionNode>> positionsGlobal{};
+std::vector<std::shared_ptr<PositionNode>> globalPositions{};
 std::unordered_map<char, std::vector<std::shared_ptr<PositionNode>>>
     symbolToPositions{};
 
 struct PositionNode : BaseNode, std::enable_shared_from_this<PositionNode> {
   PositionNode(char name = SYMBOL_HELPER_POSITION, bool nullable = false)
-      : BaseNode(Token(TokenType::NODE, name), nullable), name(name) {}
+      : BaseNode(Token(TokenType::NODE, name), nullable), name(name) {
+    readableNum = generateReadableNum();
+  }
 
   virtual ~PositionNode() {}
 
   void initializePositions() {
     auto self = shared_from_this();
     if (!nullable) {
-      firstpos.push_back(self);
-      lastpos.push_back(self);
+      firstpos.insert(self);
+      lastpos.insert(self);
     }
-    positionsGlobal.push_back(self);
     if (name != SYMBOL_HELPER_POSITION) {
       if (symbolToPositions.find(name) == symbolToPositions.end()) {
         symbolToPositions[name] = {self};
@@ -185,10 +190,11 @@ struct PositionNode : BaseNode, std::enable_shared_from_this<PositionNode> {
         symbolToPositions[name].push_back(self);
       }
     }
+    globalPositions.push_back(self);
   }
 
   std::string
-  getPosReadable(const std::vector<std::shared_ptr<BaseNode>> &positions) {
+  getPosReadable(const std::unordered_set<std::shared_ptr<BaseNode>> &positions) {
     if (!conditionName.empty()) {
       return conditionName;
     }
@@ -197,14 +203,12 @@ struct PositionNode : BaseNode, std::enable_shared_from_this<PositionNode> {
       try {
         auto position = std::dynamic_pointer_cast<PositionNode>(pos);
         conditionName += std::to_string(position->readableNum);
-        if (pos != followpos.back()) {
-          conditionName += ".";
-        }
+        conditionName += ";";
       } catch (...) {
         log("Can't cast to PositionNode");
       }
     }
-    return conditionName;
+    return conditionName.substr(0, conditionName.size() - 1);
   }
 
   std::string getFollowPosReadable() { return getPosReadable(followpos); }
@@ -228,7 +232,7 @@ struct Preprocessor {
   Preprocessor(const std::string &input) : input(input) {}
 
   resultT preprocess() {
-    input += "#";
+    input = "(" + input + ")#";
     for (int i = 0; i < input.size(); ++i) {
       // Stack concationation into one token
       // TODO: Handle repeat
@@ -259,6 +263,7 @@ struct Preprocessor {
         }
       } else if (input[i] == '#') {
         result.push_back(Token(TokenType::NODE, SYMBOL_NUMBER_SIGN));
+        break;
       }
     }
     return result;
@@ -280,6 +285,7 @@ struct Parser {
     while (cursor != input.end() && cursor->type == TokenType::TOK_OR) {
       ++cursor;
       res = std::make_shared<OrNode>(res, parseConcat());
+      log("parse or");
     }
     return res;
   }
@@ -289,6 +295,7 @@ struct Parser {
     while (cursor != input.end() && cursor->type == TokenType::TOK_CONCAT) {
       ++cursor;
       res = std::make_shared<ConcatNode>(res, parseRepeat());
+      log("parse concat");
     }
     return res;
   }
@@ -346,6 +353,14 @@ getNotMarked(const std::vector<std::shared_ptr<PositionNode>> &positions,
 
 DFA re2dfa(const std::string &s) {
 
+  if (s.empty()) {
+    auto res = DFA(Alphabet("ispras"));
+    res.create_state("ispras");
+    res.set_initial("ispras");
+    res.make_final("ispras");
+    return res;
+  }
+
   auto alpabet = Alphabet(s);
 
   auto res = DFA(alpabet);
@@ -367,14 +382,19 @@ DFA re2dfa(const std::string &s) {
   auto R = std::make_shared<PositionNode>();
   std::for_each(
       root->firstpos.begin(), root->firstpos.end(),
-      [&R](std::shared_ptr<BaseNode> node) { R->followpos.push_back(node); });
-
+      [&R](std::shared_ptr<BaseNode> node) { R->followpos.insert(node); });
 
   std::vector<std::shared_ptr<PositionNode>> Q{};
   Q.push_back(R);
   res.create_state(R->getFollowPosReadable(), false);
   res.set_initial(R->getFollowPosReadable());
   std::vector<std::shared_ptr<PositionNode>> marked{};
+
+  std::string folowpos_str{};
+  for (auto it = globalPositions.begin(); it != globalPositions.end(); ++it) {
+    folowpos_str += "- " + (*it)->getFollowPosReadable() + "\n";
+  }
+  log(folowpos_str);
 
   int cycle = 1;
 
@@ -390,13 +410,11 @@ DFA re2dfa(const std::string &s) {
 
       std::for_each(symbolToPositions[c].begin(), symbolToPositions[c].end(),
                     [&R, &S](std::shared_ptr<PositionNode> node) {
-                      log(std::string(1, node->name) + " " +
-                          node->getFollowPosReadable());
                       if (std::find(R->followpos.begin(), R->followpos.end(),
                                     node) != R->followpos.end()) {
                         for (auto it = node->followpos.begin();
                              it != node->followpos.end(); ++it) {
-                          S.followpos.push_back(*it);
+                          S.followpos.insert(*it);
                         }
                       }
                     });
