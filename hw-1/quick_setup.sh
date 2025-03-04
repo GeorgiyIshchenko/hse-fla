@@ -1,3 +1,3 @@
 #!/bin/bash
-cmake -S . `-D CMAKE_BUILD_TYPE=Release`
-cmake --build .  --config Release --target re2dfa
+cmake -S . -B build `-D CMAKE_BUILD_TYPE=Release`
+cmake --build build  --config Release --target re2dfa
