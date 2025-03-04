@@ -1,12 +1,16 @@
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <memory>
+#include <queue>
 #include <string>
 #include <unordered_map>
-#include <vector>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "api.hpp"
 
@@ -62,7 +66,7 @@ struct BaseNode {
   bool nullable;
   std::unordered_set<std::shared_ptr<BaseNode>> firstpos{};
   std::unordered_set<std::shared_ptr<BaseNode>> lastpos{};
-  std::unordered_set<std::shared_ptr<BaseNode>> followpos{};
+  std::set<int> followpos{};
 
   int readableNum{};
 };
@@ -111,7 +115,7 @@ struct RepeatNode : BaseNode {
                     std::for_each(repeatable->firstpos.begin(),
                                   repeatable->firstpos.end(),
                                   [this, &node](std::shared_ptr<BaseNode> n) {
-                                    node->followpos.insert(n);
+                                    node->followpos.insert(n->readableNum);
                                   });
                   });
   }
@@ -154,7 +158,7 @@ struct ConcatNode : BaseNode {
                         [this, &node](std::shared_ptr<BaseNode> n) {
                           log(std::to_string(node->readableNum) + " <-- " +
                               std::to_string(n->readableNum));
-                          node->followpos.insert(n);
+                          node->followpos.insert(n->readableNum);
                         });
                   });
   }
@@ -166,8 +170,9 @@ struct ConcatNode : BaseNode {
 };
 
 std::vector<std::shared_ptr<PositionNode>> globalPositions{};
-std::unordered_map<char, std::vector<std::shared_ptr<PositionNode>>>
-    symbolToPositions{};
+std::unordered_map<char, std::unordered_set<int>> symbolToPositions{};
+std::unordered_map<int, std::set<int>> globalFollowpos{};
+int numberSign = 0;
 
 struct PositionNode : BaseNode, std::enable_shared_from_this<PositionNode> {
   PositionNode(char name = SYMBOL_HELPER_POSITION, bool nullable = false)
@@ -185,33 +190,16 @@ struct PositionNode : BaseNode, std::enable_shared_from_this<PositionNode> {
     }
     if (name != SYMBOL_HELPER_POSITION) {
       if (symbolToPositions.find(name) == symbolToPositions.end()) {
-        symbolToPositions[name] = {self};
+        symbolToPositions[name] = {readableNum};
       } else {
-        symbolToPositions[name].push_back(self);
+        symbolToPositions[name].insert(readableNum);
       }
+    }
+    if (name == SYMBOL_NUMBER_SIGN) {
+      numberSign = readableNum;
     }
     globalPositions.push_back(self);
   }
-
-  std::string
-  getPosReadable(const std::unordered_set<std::shared_ptr<BaseNode>> &positions) {
-    if (!conditionName.empty()) {
-      return conditionName;
-    }
-    std::string conditionName = "";
-    for (auto pos : positions) {
-      try {
-        auto position = std::dynamic_pointer_cast<PositionNode>(pos);
-        conditionName += std::to_string(position->readableNum);
-        conditionName += ";";
-      } catch (...) {
-        log("Can't cast to PositionNode");
-      }
-    }
-    return conditionName.substr(0, conditionName.size() - 1);
-  }
-
-  std::string getFollowPosReadable() { return getPosReadable(followpos); }
 
   char name;
   std::string conditionName{};
@@ -234,8 +222,6 @@ struct Preprocessor {
   resultT preprocess() {
     input = "(" + input + ")#";
     for (int i = 0; i < input.size(); ++i) {
-      // Stack concationation into one token
-      // TODO: Handle repeat
       if (std::isalnum(input[i])) {
         result.push_back(Token(TokenType::NODE, input[i]));
         if (i + 1 < input.size() &&
@@ -285,7 +271,7 @@ struct Parser {
     while (cursor != input.end() && cursor->type == TokenType::TOK_OR) {
       ++cursor;
       res = std::make_shared<OrNode>(res, parseConcat());
-      log("parse or");
+      log("Parse or");
     }
     return res;
   }
@@ -295,7 +281,7 @@ struct Parser {
     while (cursor != input.end() && cursor->type == TokenType::TOK_CONCAT) {
       ++cursor;
       res = std::make_shared<ConcatNode>(res, parseRepeat());
-      log("parse concat");
+      log("Parse concat");
     }
     return res;
   }
@@ -325,7 +311,9 @@ struct Parser {
       return res;
     }
     // There is no self positions for EmptyNode
-    return std::make_shared<EmptyNode>();
+    auto res = std::make_shared<EmptyNode>();
+    res->initializePositions();
+    return res;
   }
 
   std::shared_ptr<BaseNode> parse() {
@@ -334,21 +322,25 @@ struct Parser {
   }
 };
 
-std::shared_ptr<PositionNode>
-getNotMarked(const std::vector<std::shared_ptr<PositionNode>> &positions,
-             const std::vector<std::shared_ptr<PositionNode>> &marked) {
-  std::shared_ptr<PositionNode> result = nullptr;
+std::string setToCondition(const std::set<int> &positions) {
+  std::string conditionName = "";
+  for (auto pos : positions) {
+    try {
+      conditionName += std::to_string(pos);
+      conditionName += ";";
+    } catch (...) {
+      log("Can't cast to PositionNode");
+    }
+  }
+  return conditionName.substr(0, conditionName.size() - 1);
+}
 
-  std::for_each(positions.begin(), positions.end(),
-                [&result, &marked](std::shared_ptr<PositionNode> node) {
-                  if (std::find(marked.begin(), marked.end(), node) ==
-                      marked.end()) {
-                    result = node;
-                    return;
-                  }
-                });
-
-  return result;
+uint hash(const std::set<int> &positions) {
+  uint32_t res = 0;
+  for (const auto& pos : positions) {
+      res ^= std::hash<int>()(pos) + 0x9e3779b9 + (res << 6) + (res >> 2);
+  }
+  return res;
 }
 
 DFA re2dfa(const std::string &s) {
@@ -379,111 +371,86 @@ DFA re2dfa(const std::string &s) {
 
   log("Expression parsed...");
 
-  auto R = std::make_shared<PositionNode>();
+  std::set<int> R{};
   std::for_each(
       root->firstpos.begin(), root->firstpos.end(),
-      [&R](std::shared_ptr<BaseNode> node) { R->followpos.insert(node); });
+      [&R](std::shared_ptr<BaseNode> node) { R.insert(node->readableNum); });
 
-  std::vector<std::shared_ptr<PositionNode>> Q{};
-  Q.push_back(R);
-  res.create_state(R->getFollowPosReadable(), false);
-  res.set_initial(R->getFollowPosReadable());
-  std::vector<std::shared_ptr<PositionNode>> marked{};
+  std::priority_queue<std::pair<bool, std::set<int>>> Q{};
+  std::unordered_set<uint> visited{};
+  Q.push({true, R});
+  res.create_state(setToCondition(R), false);
+  visited.insert(hash(R));
+  res.set_initial(setToCondition(R));
 
+  log("\nFollowpos:");
   std::string folowpos_str{};
   for (auto it = globalPositions.begin(); it != globalPositions.end(); ++it) {
-    folowpos_str += "- " + (*it)->getFollowPosReadable() + "\n";
+    globalFollowpos[(*it)->readableNum] = (*it)->followpos;
+    folowpos_str += std::to_string((*it)->readableNum) + " | " +
+                    setToCondition((*it)->followpos) + "\n";
   }
   log(folowpos_str);
 
   int cycle = 1;
 
-  while (R != nullptr) {
+  std::set<int> errorSet = {-1};
+  while (Q.top().first == true) {
 
-    log("\nCycle " + std::to_string(cycle) +
-        ". R: " + R->getFollowPosReadable());
+    log("\nCycle " + std::to_string(cycle) + ". R: " + setToCondition(R));
 
-    marked.push_back(R);
+    Q.pop();
 
-    std::for_each(alpabet.begin(), alpabet.end(), [&R, &Q, &res](char c) {
-      PositionNode S{};
+    std::for_each(alpabet.begin(), alpabet.end(), [&R, &Q, &res, &visited](char c) {
+      std::set<int> S{};
 
       std::for_each(symbolToPositions[c].begin(), symbolToPositions[c].end(),
-                    [&R, &S](std::shared_ptr<PositionNode> node) {
-                      if (std::find(R->followpos.begin(), R->followpos.end(),
-                                    node) != R->followpos.end()) {
-                        for (auto it = node->followpos.begin();
-                             it != node->followpos.end(); ++it) {
-                          S.followpos.insert(*it);
+                    [&R, &S](int node) {
+                      if (std::find(R.begin(), R.end(), node) != R.end()) {
+                        for (auto it = globalFollowpos[node].begin();
+                             it != globalFollowpos[node].end(); ++it) {
+                          S.insert(*it);
                         }
                       }
                     });
 
-      std::string log_str{};
-      log_str += "Symbol " + std::string(1, c) +
-                 ". S: " + S.getFollowPosReadable() + ". Q:";
-      std::for_each(Q.begin(), Q.end(),
-                    [&log_str](std::shared_ptr<PositionNode> node) {
-                      log_str += " " + node->getFollowPosReadable();
-                    });
-      log(log_str);
-
-      if (S.followpos.size() == 0) {
+      if (S.size() == 0) {
         return;
       }
 
-      // S not in Q
-      bool SinQ = false;
-      for (auto qIt = Q.begin(); qIt != Q.end(); ++qIt) {
-        if ((*qIt)->followpos.size() != S.followpos.size()) {
-          continue;
-        }
-
-        int foundCnt = 0;
-        for (auto qFollowposIt = (*qIt)->followpos.begin();
-             qFollowposIt != (*qIt)->followpos.end(); ++qFollowposIt) {
-          for (auto sFollowposIt = S.followpos.begin();
-               sFollowposIt != S.followpos.end(); ++sFollowposIt) {
-            if ((*qFollowposIt) == (*sFollowposIt)) {
-              ++foundCnt;
-              break;
-            }
-          }
-        }
-        if ((*qIt)->followpos.size() == foundCnt) {
-          SinQ = true;
-          break;
-        }
-      }
-
-      if (!SinQ) {
-        Q.push_back(std::make_shared<PositionNode>(S));
-        res.create_state(S.getFollowPosReadable(), false);
-        log("New state: " + S.getFollowPosReadable());
+      if (std::find(visited.begin(), visited.end(), hash(S)) == visited.end()) {
+        Q.push({true, S});
+        res.create_state(setToCondition(S), false);
+        visited.insert(hash(S));
+        log("New state: " + setToCondition(S));
       } else {
-        log("State already in Q: " + S.getFollowPosReadable());
+        log("State already in Q: " + setToCondition(S));
       }
 
-      res.set_trans(R->getFollowPosReadable(), c, S.getFollowPosReadable());
-      log("Set trans: " + R->getFollowPosReadable() + " ]--" + c + "--> " +
-          S.getFollowPosReadable());
+      res.set_trans(setToCondition(R), c, setToCondition(S));
+      log("Set trans: " + setToCondition(R) + " ]--" + c + "--> " +
+          setToCondition(S));
     });
 
-    R = getNotMarked(Q, marked);
+    Q.push({false, R});
+    log("Marked state: " + setToCondition(R));
+    R = Q.top().second;
 
     ++cycle;
   }
 
-  std::for_each(Q.begin(), Q.end(), [&res](std::shared_ptr<PositionNode> node) {
-    for (auto it = node->followpos.begin(); it != node->followpos.end(); ++it) {
-      auto position = dynamic_cast<PositionNode *>(it->get());
-      if (position->name == SYMBOL_NUMBER_SIGN) {
-        res.make_final(node->getFollowPosReadable());
-        log("Set final: " + node->getFollowPosReadable());
+  while (!Q.empty()) {
+    std::pair<bool, std::set<int>> p = Q.top();
+    Q.pop();
+    auto node = p.second;
+    for (auto it = node.begin(); it != node.end(); ++it) {
+      if (*it == numberSign) {
+        res.make_final(setToCondition(node));
+        log("Set final: " + setToCondition(node));
         break;
       }
     }
-  });
+  }
 
   return res;
 }
