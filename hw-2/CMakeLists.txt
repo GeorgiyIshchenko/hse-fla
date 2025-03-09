@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD 17)
 link_directories(dfa2re ${PROJECT_SOURCE_DIR}/)
 add_executable(dfa2re main.cpp task.cpp)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEBUG")
+
 set_target_properties(dfa2re PROPERTIES XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH "YES")
 
 if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
