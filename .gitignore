@@ -5,6 +5,10 @@ build
 # Prerequisites
 *.d
 
+# binaries
+main
+cyk
+
 # Compiled Object files
 *.slo
 *.lo

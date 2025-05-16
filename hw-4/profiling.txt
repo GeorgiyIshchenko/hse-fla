@@ -1,0 +1,108 @@
+Counters:
+  _ZN7Grammar20delete_non_acessibleEv:
+    Hash: 0xa11123894bf7f65e
+    Counters: 10
+    Function count: 1
+    Block counts: [1, 4, 4, 4, 8, 1, 1, 2, 2]
+  _Z12string_to_ptNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEE:
+    Hash: 0x0000000000005458
+    Counters: 2
+    Function count: 0
+    Block counts: [0]
+  _ZNK9PairEqualclERKNSt3__14pairIttEES4_:
+    Hash: 0x000000000060e7df
+    Counters: 3
+    Function count: 0
+    Block counts: [0, 0]
+  _Z16new_non_terminalv:
+    Hash: 0x0000000000000018
+    Counters: 1
+    Function count: 1
+    Block counts: []
+  _ZNK11VectorEqualItEclERKNSt3__16vectorItNS1_9allocatorItEEEES7_:
+    Hash: 0x00000002a0498458
+    Counters: 2
+    Function count: 1
+    Block counts: [0]
+  _ZN7Grammar13delete_chainsEv:
+    Hash: 0x288e3e898601d606
+    Counters: 15
+    Function count: 1
+    Block counts: [2, 1, 2, 0, 2, 0, 0, 0, 0, 2, 2, 2, 0, 0]
+  _ZNK10PairHasherclENSt3__14pairIttEE:
+    Hash: 0x0000000000000018
+    Counters: 1
+    Function count: 4
+    Block counts: []
+  _Z9print_cykRNSt3__113unordered_mapItNS_5arrayINS_6bitsetILm200EEELm200EEENS_4hashItEENS_8equal_toItEENS_9allocatorINS_4pairIKtS4_EEEEEE:
+    Hash: 0x0000000000000000
+    Counters: 1
+    Function count: 1
+    Block counts: []
+  _Z3cykR7GrammarRKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEE:
+    Hash: 0x1fe8ff3a46f5600e
+    Counters: 30
+    Function count: 1
+    Block counts: [0, 0, 0, 3, 3, 4, 3, 2, 6, 6, 2, 2, 2, 2, 2, 1, 1, 3, 3, 2, 0, 2, 2, 2, 1, 1, 1, 1, 0]
+  _ZN7Grammar17delete_long_prodsEv:
+    Hash: 0x2fff0283a2ea7daa
+    Counters: 7
+    Function count: 1
+    Block counts: [2, 2, 0, 0, 0, 0]
+  _Z11is_terminalt:
+    Hash: 0x000000000000061a
+    Counters: 1
+    Function count: 22
+    Block counts: []
+  _ZN7Grammar20delete_non_producingEv:
+    Hash: 0x411631410fa4e443
+    Counters: 18
+    Function count: 1
+    Block counts: [2, 2, 0, 2, 0, 0, 2, 6, 6, 11, 6, 1, 2, 5, 2, 2, 0]
+  _Z15is_non_terminalt:
+    Hash: 0x000000060f39e75d
+    Counters: 5
+    Function count: 24
+    Block counts: [13, 13, 24, 11]
+  _ZNK12VectorHasherItEclERKNSt3__16vectorItNS1_9allocatorItEEEE:
+    Hash: 0x0000000000005458
+    Counters: 2
+    Function count: 4
+    Block counts: [6]
+  _ZN7Grammar13print_grammarENSt3__112basic_stringIcNS0_11char_traitsIcEENS0_9allocatorIcEEEE:
+    Hash: 0x0000000000000000
+    Counters: 1
+    Function count: 6
+    Block counts: []
+  main:
+    Hash: 0x46aa1fbaf0626b4a
+    Counters: 8
+    Function count: 1
+    Block counts: [3, 1, 0, 4, 2, 2, 0]
+  _ZN7Grammar6to_cnfEv:
+    Hash: 0x0000000000000000
+    Counters: 1
+    Function count: 1
+    Block counts: []
+  _ZN7Grammar20delete_epsilon_prodsEv:
+    Hash: 0x32b3009f550c38cd
+    Counters: 24
+    Function count: 1
+    Block counts: [2, 2, 0, 1, 2, 0, 2, 4, 4, 0, 2, 2, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 0]
+  _ZN7Grammar14delete_uselessEv:
+    Hash: 0x0000000000000000
+    Counters: 1
+    Function count: 1
+    Block counts: []
+  _ZN7Grammar23new_prods_for_terminalsEv:
+    Hash: 0x00242f395df8e329
+    Counters: 18
+    Function count: 1
+    Block counts: [2, 2, 0, 0, 0, 2, 2, 1, 2, 1, 1, 1, 0, 1, 1, 1, 0]
+Instrumentation level: Front-end
+Functions shown: 20
+Total functions: 20
+Maximum function count: 24
+Maximum internal block count: 24
+Total number of blocks: 151
+Total count: 348
