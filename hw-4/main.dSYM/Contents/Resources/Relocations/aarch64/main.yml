@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/developer/hse/fla/hse-fla/hw-4/main'
+relocations:     []
+...
